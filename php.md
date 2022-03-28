@@ -1,0 +1,203 @@
+## php错误日志
+
+throwble包括 error 和 exception     
+
+error  :    E_PARSE & E_ERROR 级的 ERROR （还有一些其他的，E_CORE_WARNING E_CORE_NOTICE E_COMPILE_WARNING E_COMPLE_NOTICE 等，不常见
+
+cathc(throwble )可以捕获以上两个，error错误需要主动退出，exception自动退出。
+
+ 
+
+ errorException 是将捕获的错误转为错误异常(set_error_handler可以捕获用户级错误 和 notice.warning,deprecated错误)
+
+```php
+set_error_handler(function ($errno, $errstr, $errfile, $errline) {
+    if (!(error_reporting() & $errno)) {
+        return ;//没有设置该错误，所以忽略
+    }
+    
+    throw new ErrorException($errstr, $errno, 0, $errfile, $errline);
+})
+```
+
+
+
+display_errors = Off 
+
+log_errors = On 
+
+error_log = /var/log/php-error.log
+
+另外也可以设定error_log = syslog，使这些错误信息记录到操作系统的日志。
+
+有时会遇到以下问题： 
+
+PHP设置文件php.ini中明明已经设置display_errors = Off，但是在运行过程中，网页上还是会出现错误信息。 
+
+经查log_errors= On，当这个log_errors设置为On，那么必须指定error_log文件，如果没指定或者指定的文件没有权限写入，那么照样会输出到正常的输出渠道，那么也就使得display_errors 这个指定的Off失效，错误信息还是打印了出来。于是将log_errors = Off，问题就可以解决。 
+
+
+
+
+
+附件：
+
+```
+# 系统级用户代码的一些错误类型 可由 try ... catch ... 捕获
+E_PARSE          解析时错误 语法解析错误 少个分号 多个逗号一类的 致命错误
+E_ERROR          运行时错误 比如调用了未定义的函数或方法 致命错误
+
+# 可由 set_error_handler 捕获处理
+E_WARNING        运行时警告 调用了未定义的变量
+E_NOTICE         运行时提醒                  
+E_DEPRECATED     运行时已废弃的函数或方法
+```
+
+## gpg
+
+公钥 子公钥    私钥  子私钥
+
+指纹是把公钥加密后得到的，根据指纹去搜索公钥.  指纹和摘要类似
+
+公钥过期或吊销。（密钥中存一个标识，标识是否过期？或者声称该密钥的吊销证书，需要时将该证书导入）
+
+```php
+ gpg --import ~/.gnupg/revoke-hello.asc
+
+更新至 公鑰伺服器
+
+$ gpg --keyserver pgp.mit.edu --send-keys <user-id>
+```
+
+
+
+为了避免中间人(man-in-the-middle)攻击，管理员在通过SSH远程连接主机的时候，SSH会生成主机指纹并请求保存。服务器的管理员可以发送密钥指纹给客户端，来让其在首次登陆时验证服务器的真实性。在之后的连接中，都会验证与保存的指纹是否匹配。如果不匹配，SSH会给出警告说明密钥变更。
+
+
+
+openssl   gpg          linux支持的两种文件加密方法
+
+1.ssh协议   secure shell      openssh实现ssh协议的服务端和客户端
+
+2.ssl    secure socket layer  范围更广泛的协议    tls是ssl后续的协议  tls1.0==ssl3.0
+
+3.https  
+
+​		a`lians:    Hypertext Transfer Protocol Secur  , HTTP over TLS, HTTP over SSL`
+
+​		`只需要申请ca证书就可以，因为对http来说，ssl是透明的。`
+
+​	     `https加密解密数据用的对称加密算法，密钥是双方基于非对称协商出来的，是采用椭圆曲线之类的东西做密钥交换。`
+
+​		`补充一小点内容给你，ssltrip2可以通过arp欺骗篡改响应页面内容，将https降级为http做劫持，曲线救国。这种攻击利用的是很多网站并没有关掉http访问，而是在服务端将首页从http跳到https，给了攻击者一个http响应做突破口。不过这种攻击也可以防御，启用hsts和pre load就行了，让攻击者找不到任何http的机会。`
+
+
+
+4.ssh 利用 openssl 提供的库
+
+`*ssh --> SSH(商业)*`
+`*OpenSSH(开源)`*
+
+`*OpenBSD子项目OpenSSH的开发者宣布OpenSSH的编译可以选择不再链接OpenSSL加密库——“mak OPENSSL=no”。OpenSSH是SSH协议的开源替代，默默无名的OpenSSL开源加密库最近因为heartbleed漏洞几乎变得无人不 知，漏洞的影响遍及整个互联网。*`
+
+`*OpenBSD的开发者为此而创建了OpenSSL的分支LibreSSL，开发者透露未来用户编译时可选择链接到 LibreSSL库。`*
+
+
+
+### 摘要和加密 形成数字签名
+
+指纹是公开的，形成指定的指纹是很难的，传输安全先不管。
+
+摘要是传输过程中被劫持导致不安全。
+
+**加密的消息摘要HMAC**   将摘要用密钥加密
+
+
+
+## 服务器调优
+
+### php.ini
+
+**1.memory_limit**   default:128M(适用中小型应用。内存性应用如drupal可以大一点：512M)     单个php进程可以使用的内存**最大值**
+
+单个php进程一般会消耗5~20MB内存
+
+**2.opcache**
+
+​	opcache.memory_consumption=64   分配给操作码的内存。小型：16MB ; 大型：64MB
+
+​	opcache.interned_strings_buffer =16  驻留字符串需要的进程共享内存defautl:4; modern:16MB
+
+​	opcache.max_accelerated_files=4000  操作码缓存中最多能存储多少个php脚本  
+
+​	opcache.validate_timestamps =1 隔一段时间检查php脚本是否有变化,0不检查。生产环境设置为0
+
+​	opcache.revalidate_freq =0  多久检查脚本是否变化，单位秒。0秒代表每次请求重新验证php脚本
+
+​	opcache.fast_shutdown = 1 让操作码使用更快的停机步骤，把 对象的析构和内存释放 交给zend引擎的内存管理器 完成。你只需要设置为1.
+
+**3.upload**  default：单次请求上传20个文件，每个文件max 2MB
+
+​	file_uploads = 1  允许文件上传
+
+​	upload_max_filesize=10M  上传文件大小,if值过大,web服务器会抱怨http请求body太大.或者请求超时。    如果太大，需要设置nginx中的client_max_body_size
+
+​	max_file_uploads = 3 单次请求最多上传3个文件
+
+**4.max_execution_time=5** default:30  单位：秒.设定单个php进程终止之前最长可以运行多长时间，set_time_limit()可以覆盖该值。如果需要长时间运行脚本，比如调整图像尺寸或生成报告，这个任务可能要花费10分钟，我们应该单独编写一个php文件-create-reporte.php。（modern php: 144页）  system('ls '.escapeshellarg($dir));escapeshellarg()防止参数注入
+
+<?php
+
+​	exec('echo "create-reporte.php" | at now');
+
+​	echo 'Report pending...';
+
+​	后台运行完毕后mail通知用户或更新数据库等。
+
+如果派生多个后台进程，最好使用作业对列
+
+**5.会话**
+
+​	默认缓存到磁盘上。应该存在内存中。
+
+session.save_handler = “memcached”     session.save_path = "127.0.0.2:11211"
+
+**6.缓冲输出**
+
+```
+ob_flush()和flush()的区别。前者是把数据从PHP的缓冲中释放出来，后者是把不在缓冲中的或者说是被释放出来的数据发送到浏览器
+```
+
+ob_flush  		输出缓冲区内容
+
+ob_end_flush 输出缓冲区内容 并关闭缓冲区
+
+output_buffering = 4096      如果开启ob_start()会让整个脚本全部缓冲，output_buffering配置失效  。
+
+implicit_flush = false       隐式刷新。隐式调用flush
+
+```
+举例（来自网络）：
+   对于php + nginx 的环境该过程会依次经历：output_buffering, fastcgi_buffer 和 proxy_buffering 。
+   (注意：CLI 中会强制将php.ini中的output_buffering设置为关闭状态，即无论php的配置文件是开启了缓冲区，还是关闭了缓冲区，
+CLI 默认都不会使用output_buffering。除非我们在代码中显示的调用ob_start()来使用该缓冲区。CLI 同时还会强制将implicit_flush设置为开启状态)
+
+fastcgi_buffer是强制打开的，我们无法通过flush()函数强制刷新缓冲区,但把缓冲区填满，等待输出的内容立即发送到客户端的功能还是有效的
+```
+
+​	**7.realpath_cache_size=64k**
+
+​	  php会缓存应用使用的的文件路经，默认为16k。将该值设置大一点，在PHP脚本末尾加上print_r(realpath_cache_size()); 得到该值。
+
+
+
+## home/deploy/apps/myapp/
+
+## capistrano  自动部署
+
+## travis 持续集成
+
+### supervisord 监控程序
+
+
+
